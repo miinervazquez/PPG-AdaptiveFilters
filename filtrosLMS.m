@@ -44,10 +44,10 @@ for j = 1:6
         
         % === Select ONE adaptive algorithm (uncomment only one) ===
         W = lms(e(i), delay, W, miu);                % LMS
-        % W = slms(e(i), delay, W, miu);             % Signed LMS
-        % W = sslms(e(i), delay, W, miu);            % Sign-sign LMS
-        % W = nlms(e(i), delay, W, miu, gamma);      % Normalized LMS
-        % W = vssnlms(e(i), delay, W, miu, C, alpha, P); % Variable Step-Size NLMS
+        % W = slms(e(i), delay, W, miu);             % SLMS
+        % W = sslms(e(i), delay, W, miu);            % SSLMS
+        % W = nlms(e(i), delay, W, miu, gamma);      % NLMS
+        % W = vssnlms(e(i), delay, W, miu, C, alpha, P); % VSSNLMS
     end
     
     R(:, j) = e';    % Error signal (filtered output)
