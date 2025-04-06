@@ -1,15 +1,16 @@
-PPGo = PPG3;
-PPG = PPGo(:,1);
-PPGcont = PPGo(:,2);
-x = PPGo(:,3);
-y = PPGo(:,4);
-z = PPGo(:,5);
+PPGo = PPG3; % Select PPG data from one of the available subjects (e.g., PPG1 to PPG7)
+PPG = PPGo(:,1); % Reference PPG signal
+PPGcont = PPGo(:,2); % Contaminated PPG signal (affected by motion artifacts)
+x = PPGo(:,3); % Acceleration signals from X-axis
+y = PPGo(:,4); % Acceleration signals from Y-axis
+z = PPGo(:,5); % Acceleration signals from Z-axis
 
+% Remove DC offset from all signals
 PPG=PPG-mean(PPG);
 x=x-mean(x);
 y=y-mean(y);
 z=z-mean(z);
-n = sqrt((x.^2)+(y.^2)+(z.^2));
+n = sqrt((x.^2)+(y.^2)+(z.^2)); % Acceleration magnitude from the three axes
 
 %%%%%%%%%%%%%%%%%%% Parametros iniciales del filtro %%%%%%%%%%%%%%%%%%%%%%%
 k=length(PPG); 
