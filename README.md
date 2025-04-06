@@ -3,9 +3,9 @@ Code to reproduce the results of the article:
 **"Spectral coherence as a method for evaluating adaptive filtering techniques in photoplethysmography"**
 
 ## Manuscript Information
-- **Manuscript Title:** Spectral coherence as a method for evaluating adaptive filtering techniques in photoplethysmography  
-- **Submission ID:** 9211  
-- **Authors:** [Minerva Vázquez], [J. Gerardo Ávalos Ochoa], [J. Carlos Sánchez García], [Brayans Becerra Luna].
+If you use this code, please cite the following article:
+
+Vázquez Domínguez, M. G., Ávalos Ochoa, J. G., Sánchez García, J. C., & Becerra Luna, B. (2025). Spectral coherence as a method for evaluating adaptive filtering techniques in photoplethysmography. IEEE Latin America Transactions, 23(4), 274–284. Retrieved from https://latamt.ieeer9.org/index.php/transactions/article/view/9211
   
 ## Description
 This repository contains MATLAB code for calculating spectral coherence and power spectral density, as well as implementing adaptive filters used in the study.
