@@ -1,59 +1,65 @@
-PPGo = PPG3; % Select PPG data from one of the available subjects (e.g., PPG1 to PPG7)
-PPG = PPGo(:,1); % Reference PPG signal
-PPGcont = PPGo(:,2); % Contaminated PPG signal (affected by motion artifacts)
-x = PPGo(:,3); % Acceleration signals from X-axis
-y = PPGo(:,4); % Acceleration signals from Y-axis
-z = PPGo(:,5); % Acceleration signals from Z-axis
+PPGo = PPG3;                  % Select PPG data from one of the available subjects (e.g., PPG1 to PPG7)
+PPG = PPGo(:,1);              % Reference PPG signal
+PPGcont = PPGo(:,2);          % Contaminated PPG signal (affected by motion artifacts)
+x = PPGo(:,3);                % Acceleration signal from X-axis
+y = PPGo(:,4);                % Acceleration signal from Y-axis
+z = PPGo(:,5);                % Acceleration signal from Z-axis
 
 % Remove DC offset from all signals
-PPG=PPG-mean(PPG);
-x=x-mean(x);
-y=y-mean(y);
-z=z-mean(z);
-n = sqrt((x.^2)+(y.^2)+(z.^2)); % Acceleration magnitude from the three axes
+PPG = PPG - mean(PPG);
+PPGcont = PPGcont - mean(PPGcont);
+x = x - mean(x);
+y = y - mean(y);
+z = z - mean(z);
+n = sqrt( (x.^2) + (y.^2) + (z.^2) ); % Acceleration magnitude from the three axes
 
-%%%%%%%%%%%%%%%%%%% Parametros iniciales del filtro %%%%%%%%%%%%%%%%%%%%%%%
-k=length(PPG); 
-N=200;
-miu = 0.02 ;
-gamma = 0.0005;
+%%%%%%%%%%%%%%%%%%% Initial parameters for adaptive filter %%%%%%%%%%%%%%%%%%%%%%%
+k = length(PPG);
+N = 200;             % Filter order
+miu = 0.02;          % Convergence factor (step-size)
+gamma = 0.0005;      % Regularization factor (used to improve numerical stability)
 
-mov=[x y z n y z]; %Matriz de señales de movimiento: x,y,z,n,xy,xyz
-R=zeros(k,6); %Vectores recuperados: [Rx;Ry;Rz;Rn;Rxy;Rxyz]
+mov = [x y z n y z]; % Matrix of motion signals: x, y, z, n, xy, xyz
+R = zeros(k,6);      % Matrix to store recovered signals: [Rx; Ry; Rz; Rn; Rxy; Rxyz]
 
-for j=1:6
-    W=zeros(N,1); %Vector de pesos
-    e=zeros(1,k); %Vector de error
-    P=zeros(N,1);
-    r = mov(:,j); %Señal de mov. a utilizar
+for j = 1:6
+    W = zeros(N, 1);       % Weight vector (filter coefficients)
+    e = zeros(1, k);       % Error signal
+    P = zeros(N, 1);       % Placeholder (used in VSS-NLMS)
+    r = mov(:, j);         % Select the motion signal to be used as reference input
     
-    if (j==5) 
-        noisy = R(:,1);
-    elseif (j==6) 
-        noisy = R(:,5);
+    % Select the appropriate noisy signal based on the current motion component
+    if (j == 5)
+        noisy = R(:, 1);   % For Rxy, use the result from filtering with x-axis (Rx)
+    elseif (j == 6)
+        noisy = R(:, 5);   % For Rxyz, use the result from filtering with Rxy
     else
-        noisy = PPGcont;
+        noisy = PPGcont;   % For Rx, Ry, Rz, and Rn use the original contaminated PPG
     end
     
-for i=N:k
-    delay = r(i:-1:i-N+1);
-    e(i) = noisy(i)-W'*delay; 
-    W = lms(e(i),delay,W,miu); %LMS
-%     W = slms(e(i),delay,W,miu); %SLMS
-%     W = sslms(e(i),delay,W,miu); %Sign-Sign
-%     W = nlms(e(i),delay,W,miu,gamma); %NLMS
-%     W = vssnlms(e(i),delay,W,miu,C,alpha,P); %VSS NLMS
-end
-    R(:,j) = e';
+ % Adaptive filtering loop
+    for i = N:k
+        delay = r(i:-1:i-N+1);         % Delayed input vector
+        e(i) = noisy(i) - W' * delay;  % Error
+        
+        % === Select ONE adaptive algorithm (uncomment only one) ===
+        W = lms(e(i), delay, W, miu);                % LMS
+        % W = slms(e(i), delay, W, miu);             % Signed LMS
+        % W = sslms(e(i), delay, W, miu);            % Sign-sign LMS
+        % W = nlms(e(i), delay, W, miu, gamma);      % Normalized LMS
+        % W = vssnlms(e(i), delay, W, miu, C, alpha, P); % Variable Step-Size NLMS
+    end
+    
+    R(:, j) = e';    % Error signal (filtered output)
 end
 
-t = ( 0 : length( PPG ) - 1 ) / 100 ;  %tiempo discreto
+t = ( 0 : length( PPG ) - 1 ) / 100 ; % Discrete time vector
 
 figure(1)
 plot(t, PPG, 'LineWidth', 1.7); hold on
 plot(t, PPGcont + 6, 'LineWidth', 1.7); hold on
 
-% Suponiendo que R tiene las mismas filas que PPG
+% Assuming R has the same number of rows as PPG
 plot(t, R(:,1) + 1, 'LineWidth', 1.7); hold on
 plot(t, R(:,2) + 2, 'LineWidth', 1.7); hold on
 plot(t, R(:,3) + 3, 'LineWidth', 1.7); hold on
@@ -62,20 +68,19 @@ plot(t, R(:,5) + 5, 'LineWidth', 1.7); grid on
 
 legend({'PPG ref', 'PPG cont', 'Rx', 'Ry', 'Rz', 'Rn', 'Rxyz'})
 xlabel('Tiempo (s)'); ylabel('Amplitud (v)');
-% xlim([82.13 115.92]); %ylim([-0.5 7])
 
-R = R(:,2); %Mejor recuperada
-ruido = y ; %Señal de movimiento utilizada
+R = R(:,2); % Best recovery (from filtered signals)
+ruido = y ; % Motion signal used to filter PPG signal
 
-%%%%%%%%%%%%%%%%%%%%%%%%% Espectro de potencias %%%%%%%%%%%%%%%%%%%%%%%%%%%
-window=boxcar(128); %Ventana rectangular
-noverlap=64; %Solapamiento del 50%
-nfft=512; %Tamaño de las secciones
+%%%%%%%%%%%%%%%%%%%%%%%%% Power Spectrum (PSD) %%%%%%%%%%%%%%%%%%%%%%%%%%%
+window = boxcar(128); % Rectangular window
+noverlap = 64; % 50% overlap
+nfft = 512; % Section size
 
-[PSD_PPG, f_PPG]=pwelch(PPG,window,noverlap,nfft,fs);
-[PSD_PPGcont, f_PPGcont]=pwelch(PPGcont,window,noverlap,nfft,fs); 
-[PSD_R, f_R]=pwelch(RR,window,noverlap,nfft,fs);
-[PSD_r, f_r]=pwelch(ruido,window,noverlap,nfft,fs);
+[PSD_PPG, f_PPG] = pwelch(PPG, window, noverlap, nfft, fs); % PSD of reference PPG signal
+[PSD_PPGcont, f_PPGcont] = pwelch(PPGcont, window, noverlap, nfft, fs); % PSD of contaminated PPG signal
+[PSD_R, f_R] = pwelch(RR, window, noverlap, nfft, fs); % PSD of filtered signal
+[PSD_r, f_r] = pwelch(ruido, window, noverlap, nfft, fs); % PSD of noise
 
 PSD_PPGA = PSD_PPG * (max(PSD_PPGcont(4:end))/max(PSD_PPG(4:end))) ;
 colores = lines(5); 
@@ -123,21 +128,20 @@ grid on;
 legend('Señal de movimiento en eje y', 'FontSize', 40, 'Box', 'off', 'Location', 'northwest');
 set(gca, 'Box', 'off', 'TickDir', 'out', 'FontSize', 45);
 
-%%%%%%%%%%%%%%%%%%%%%% Coherencia espectral %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-PPGcont=PPGcont-mean(PPGcont);
-RR = R-mean(R);
-fs = 100; %Frecuencia de muestreo
+%%%%%%%%%%%%%%%%%%%%%% Spectral Coherence %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+RR = R - mean(R);                  % Remove DC offset from filtered signal
+fs = 100;                          % Sampling frequency in Hz
 
-[C_P_R,F_P_R] = mscohere(PPG,RR,window,noverlap,nfft,fs); %Coherencia PPG y Recuperada
-[C_Pcont_R,F_Pcont_R] = mscohere(PPGcont,RR,window,noverlap,nfft,fs); %Coherencia PPGcont y Recuperada
-[C_P_Pcont,F_P_Pcont] = mscohere(PPG,PPGcont,window,noverlap,nfft,fs); %Coherencia PPG y PPGcont
+[C_P_R, F_P_R] = mscohere(PPG, RR, window, noverlap, nfft, fs);         % Coherence: PPG vs. recovered
+[C_Pcont_R, F_Pcont_R] = mscohere(PPGcont, RR, window, noverlap, nfft, fs); % Coherence: PPGcont vs. recovered
+[C_P_Pcont, F_P_Pcont] = mscohere(PPG, PPGcont, window, noverlap, nfft, fs); % Coherence: PPG vs. PPGcont
 
-[Cx,Fx] = mscohere(PPGcont,x,window,noverlap,nfft,fs); %Coherencia PPGcont y x
-[Cy,Fy] = mscohere(PPGcont,y,window,noverlap,nfft,fs); %Coherencia PPGcont y y
-[Cz,Fz] = mscohere(PPGcont,z,window,noverlap,nfft,fs); %Coherencia PPGcont y z
-[Cn,Fn] = mscohere(PPGcont,n,window,noverlap,nfft,fs); %Coherencia PPGcont y n
+[Cx, Fx] = mscohere(PPGcont, x, window, noverlap, nfft, fs); % Coherence: PPGcont vs. x
+[Cy, Fy] = mscohere(PPGcont, y, window, noverlap, nfft, fs); % Coherence: PPGcont vs. y
+[Cz, Fz] = mscohere(PPGcont, z, window, noverlap, nfft, fs); % Coherence: PPGcont vs. z
+[Cn, Fn] = mscohere(PPGcont, n, window, noverlap, nfft, fs); % Coherence: PPGcont vs. n
 
-figure(4)
+figure(4) 
 plot(F_P_R,C_P_R,'LineWidth',2,'Color',[255/255,144/255,0]); hold on
 plot(F_Pcont_R,C_Pcont_R,'LineWidth',2,'Color',[0,206/255,209/255]);
 xlabel('Frecuencia (Hz)'); xlim([0 10]); ylim([0 1.1]); grid on
@@ -151,7 +155,7 @@ xlim(ax1, [0 10]); % ylim(ax1, [0 0.0045]);
 legend(ax1, 'PPG contaminada y x','PPG contaminada y y',...
     'PPG de referencia y z','PPG contaminada y n'); grid on
 xlabel(ax1, 'Frecuencia (Hz)'); ylabel(ax1, 'Coherencia espectral');
-%%%%
+
 ax2 = axes('Position',[0.5 0.35 0.38 0.4]); %[0.64 0.28 0.25 0.5]
 plot(ax2, Fx,Cx,'LineWidth',2); hold on; 
 plot(ax2, Fy,Cy,'LineWidth',2); hold on
@@ -168,22 +172,23 @@ legend({'PPG ref','PPG cont','R'})
 xlabel('muestras'); ylabel('A (v)');
 xlim([8300 8900])
 
-%%%%%%%%%%%%%%%% Calculo del error espectral %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Rango de frecuencias filtradas - no. de muestra correspondiente
-a = 26; %limite inferior 
-b = 37; %limite superior
+%%%%%%%%%%%%%%%% Spectral Error Calculation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Frequency range of interest (sample indices)
+a = 26; % lower limit 
+b = 37; % upper limit
 
+% Mean power in the selected band
 PSDpPPG = sum( PSD_PPGA(a:b) ) / length(PSD_PPGA(a:b));
 PSDpPPGcont = sum( PSD_PPGcont(a:b) ) / length(PSD_PPGcont(a:b));
 PSDpR = sum( PSD_R(a:b) ) / length(PSD_R(a:b));
 
-E1 = ( (PSDpR - PSDpPPG) / PSDpPPG ) * 100 ;
-E2 = ( (PSDpPPGcont - PSDpPPG) / PSDpPPG ) * 100 ;
+% Relative error (%) w.r.t. clean PPG
+E1 = ( (PSDpR - PSDpPPG) / PSDpPPG ) * 100;       % Recovered
+E2 = ( (PSDpPPGcont - PSDpPPG) / PSDpPPG ) * 100; % Contaminated
 
 %%%%%%%%%%%%%%%%%%%%%% SNR %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-snr1=10*log10(mean(PPGcont.^2)/mean(ruido.^2));
-snr2=10*log10(mean(RR.^2)/mean(ruido.^2));
+snr1 = 10*log10(mean(PPGcont.^2) / mean(ruido.^2));   % Contaminated vs noise
+snr2 = 10*log10(mean(RR.^2) / mean(ruido.^2));        % Recovered vs noise
 
-snr3=10*log10(mean(PPG.^2)/mean(PPGcont.^2));
-snr4=10*log10(mean(PPG.^2)/mean(RR.^2));
-
+snr3 = 10*log10(mean(PPG.^2) / mean(PPGcont.^2));     % Ref vs contaminated
+snr4 = 10*log10(mean(PPG.^2) / mean(RR.^2));          % Ref vs recovered
