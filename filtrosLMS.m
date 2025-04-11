@@ -18,6 +18,7 @@ k = length(PPG);
 N = 200;             % Filter order
 miu = 0.02;          % Convergence factor (step-size)
 gamma = 0.0005;      % Regularization factor (used to improve numerical stability)
+C = 0.0001; alpha = 0.001; % VSSNLMS
 
 mov = [x y z n y z]; % Matrix of motion signals: x, y, z, n, xy, xyz
 R = zeros(k,6);      % Matrix to store recovered signals: [Rx; Ry; Rz; Rn; Rxy; Rxyz]
@@ -25,7 +26,7 @@ R = zeros(k,6);      % Matrix to store recovered signals: [Rx; Ry; Rz; Rn; Rxy; 
 for j = 1:6
     W = zeros(N, 1);       % Weight vector (filter coefficients)
     e = zeros(1, k);       % Error signal
-    P = zeros(N, 1);       % Placeholder (used in VSS-NLMS)
+    P = zeros(N, 1);       % Placeholder (used in VSSNLMS)
     r = mov(:, j);         % Select the motion signal to be used as reference input
     
     % Select the appropriate noisy signal based on the current motion component
